@@ -1,13 +1,16 @@
 import os
 import streamlit as st
-from dotenv import load_dotenv
 from pypdf import PdfReader
 import docx
 import chromadb
 from google import genai
 
-# Load environment variables silently
-load_dotenv()
+# Local machine par .env load karega, Cloud par safely ignore karega
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
 # ----------------- App Config & UI Setup -----------------
 st.set_page_config(
@@ -19,10 +22,15 @@ st.set_page_config(
 st.title("📚 DocuMind: Smart Notes Q&A Engine")
 st.caption("Upload PDFs or Word docs, search across content, and get verified summarized answers strictly from your notes.")
 
-# ----------------- Secure Background Client Setup -----------------
-API_KEY = os.environ.get("GEMINI_API_KEY")
+# ----------------- Secure Key Retrieval (Cloud Secrets + Local Env) -----------------
+API_KEY = None
+if hasattr(st, "secrets") and "GEMINI_API_KEY" in st.secrets:
+    API_KEY = st.secrets["GEMINI_API_KEY"]
+else:
+    API_KEY = os.environ.get("GEMINI_API_KEY")
+
 if not API_KEY:
-    st.error("⚠️ GEMINI_API_KEY .env file mein nahi mili! Project folder mein .env file banakar key add karein.")
+    st.error("⚠️ GEMINI_API_KEY nahi mili! Streamlit Cloud Settings > Secrets mein GEMINI_API_KEY configure karein.")
     st.stop()
 
 client = genai.Client(api_key=API_KEY)
@@ -72,7 +80,7 @@ with st.sidebar:
 
 # ----------------- Document Parser -----------------
 def process_documents(files):
-    """PDF aur DOCX files se text extract karta hai."""
+    """PDF aur DOCX files se clean text extract karta hai."""
     all_chunks = []
     all_metadatas = []
     chunk_size = 500
